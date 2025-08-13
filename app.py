@@ -176,7 +176,7 @@ def _inject_sparrow_css():
   display:inline-flex;
   align-items:center;
   gap:.35rem;
-  padding:4px 8px !important;     /* ← 여백 줄임 */
+  padding:6px 8px 8px !important;     /* ← 여백 줄임 */
   font-size:10px !important;      /* ← 글자 크기 줄임 */
   line-height:1.1;                
   border-radius:10px !important;  /* ← 둥근 정도 축소 */
