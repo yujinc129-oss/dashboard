@@ -789,7 +789,7 @@ def page_predict():
         data_age_groups = sorted(set(str(x) for x in raw_df.get("age_group", pd.Series([], dtype=object)).dropna().unique()))
         opts_age_group = data_age_groups if data_age_groups else age_group_candidates
         safe_index = 0 if not opts_age_group else min(1, len(opts_age_group)-1)
-        target_age_group = st.selectbox("🎯 타깃 시청자 연령대",
+        target_age_group = st.selectbox("🎯 타겟 시청자 연령대",
                                         options=opts_age_group if opts_age_group else ["(데이터 없음)"],
                                         index=safe_index,
                                         key="target_age_group_main")
@@ -892,7 +892,7 @@ def page_predict():
     gap = abs(actor_decade - target_decade)
 
     with st.container():
-        st.markdown("**🎯 타깃-배우 연령대 정렬 가이드**")
+        st.markdown("**🎯 시청자-배우 연령대 정렬 가이드**")
         if target_decade <= 20:
             st.markdown("- 톤/장르: romance · comedy · action 위주, 가벼운 몰입 유도")
             st.markdown("- 편성: 토요일/주말 강세, 클립 중심 SNS 확산 고려")
