@@ -133,6 +133,7 @@ def _inject_sparrow_css():
     st.markdown("""
     <style>
       /* ---------- Layout / Typography ---------- */
+      :root{ --page-top-pad: 6.5rem; }  /* ← 필요하면 5.5~8rem 사이로 조절 */
       .block-container{padding-top:4.8rem; padding-bottom:2.6rem;}
       h1,h2,h3{font-weight:800;}
       /* Plotly 컨테이너 위쪽 간격 조금 */
