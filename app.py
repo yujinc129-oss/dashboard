@@ -139,7 +139,7 @@ def _inject_sparrow_css():
       /* ---------- Sidebar ---------- */
       section[data-testid="stSidebar"]{
         width:220px !important; min-width:220px;
-        background:#0b1220; color:#e5e7eb; border-right:1px solid #070c16;
+        background:#ffffff; color:#e5e7eb; border-right:1px solid #070c16;
       }
       .sb-wrap{display:flex; flex-direction:column; height:100%;}
       .sb-brand{display:flex; align-items:center; gap:10px; padding:14px 12px 10px;}
@@ -1132,7 +1132,7 @@ with st.sidebar:
 
     sm_text = "ON" if SAFE_MODE else "OFF"
     st.markdown(f'<div class="sb-card"><h4>Safe Mode: {sm_text}</h4>', unsafe_allow_html=True)
-    st.caption("과도한 탐색/연타/대용량 작업을 제한해 403(Fair-use) 차단 가능성을 낮춥니다.")
+    st.caption("test_size = 0.2, random_state = 42")
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="sb-footer">© Chemiscore • <span class="ver">v0.2</span></div>', unsafe_allow_html=True)
