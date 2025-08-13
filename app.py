@@ -388,14 +388,41 @@ def page_overview():
 
     with c2:
         st.subheader("플랫폼별 작품 수 (TOP 10)")
-        p_cnt = (raw_df.assign(network=raw_df["network"].apply(clean_cell_colab))
-                        .explode("network")
-                        .dropna(subset=["network"])
-                        .groupby("network").size()
-                        .reset_index(name="count"))
+    
+        # 1) 집계
+        p_cnt = (
+            raw_df.assign(network=raw_df["network"].apply(clean_cell_colab))
+                  .explode("network")
+                  .dropna(subset=["network"])
+                  .groupby("network")
+                  .size()
+                  .reset_index(name="count")
+        )
         p_cnt = p_cnt.loc[:, ~p_cnt.columns.duplicated()].copy()
-        fig_p = px.bar(p_cnt, x='network', y='count')
-        fig_p.update_layout(height=320, margin=dict(l=10, r=10, t=20, b=40))
+    
+        # 2) etc_p 식별 (대소문자/기호 무시)
+        import re
+        def _norm(s: str) -> str:
+            return re.sub(r'[^a-z0-9]+', '', str(s).lower())
+    
+        p_cnt["__is_etc"] = p_cnt["network"].map(lambda x: _norm(x) == "etcp")
+    
+        # 3) 정렬: etc_p 제외한 항목을 count 내림차순 → 상위 10개
+        main_sorted = p_cnt.loc[~p_cnt["__is_etc"]].sort_values("count", ascending=False).head(10)
+        etc_rows    = p_cnt.loc[p_cnt["__is_etc"]]
+    
+        # 4) 최종 순서: 메인(내림차순) + etc_p(맨 뒤)
+        p_sorted = pd.concat([main_sorted, etc_rows], ignore_index=True)
+    
+        # 5) Plotly가 우리가 만든 순서를 그대로 쓰도록 카테고리 순서 고정
+        p_sorted["network"] = pd.Categorical(p_sorted["network"],
+                                             categories=p_sorted["network"].tolist(),
+                                             ordered=True)
+    
+        # 6) 차트
+        fig_p = px.bar(p_sorted, x="network", y="count", text="count")
+        fig_p.update_traces(textposition="outside", cliponaxis=False)
+        fig_p.update_layout(height=360, margin=dict(l=12, r=12, t=36, b=80))
         st.plotly_chart(fig_p, use_container_width=True)
 
 def page_basic():
