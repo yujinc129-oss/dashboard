@@ -470,65 +470,396 @@ def page_basic():
 
 def page_dist():
     st.header("분포 및 교차분석")
-    st.subheader("연도별 주요 플랫폼 작품 수")
-    ct = (
-        pd.DataFrame({'start airing': raw_df['start airing'], 'network': raw_df['network'].apply(clean_cell_colab)})
-        .explode('network').groupby(['start airing','network']).size().reset_index(name='count')
-    )
-    ct['NETWORK_UP'] = ct['network'].astype(str).str.upper()
-    focus = ['KBS','MBC','TVN','NETFLIX','SBS']
-    fig3 = px.line(ct[ct['NETWORK_UP'].isin(focus)], x='start airing', y='count', color='network',
-                   log_y=True, title="연도별 주요 플랫폼 작품 수")
-    st.plotly_chart(fig3, use_container_width=True)
+    df = raw_df.copy()
 
-    p = (ct.pivot_table(index='start airing', columns='NETWORK_UP', values='count', aggfunc='sum')
-           .fillna(0).astype(int))
-    years = sorted(p.index)
-    insights = []
-    if 'NETFLIX' in p.columns:
-        s = p['NETFLIX']; nz = s[s > 0]
-        if not nz.empty:
-            first_year = int(nz.index.min())
-            max_year, max_val = int(s.idxmax()), int(s.max())
-            insights.append(f"- **넷플릭스(OTT)의 급성장**: {first_year}년 이후 증가, **{max_year}년 {max_val}편** 최고치.")
-    down_ter = []
-    for b in ['KBS','MBC','SBS']:
-        if b in p.columns and len(years) >= 2:
-            slope = np.polyfit(years, p[b].reindex(years, fill_value=0), 1)[0]
-            if slope < 0: down_ter.append(b)
-    if down_ter:
-        insights.append(f"- **지상파 감소 추세**: {' / '.join(down_ter)} 전반적 하락.")
-    st.markdown("**인사이트**\n" + "\n".join(insights))
+    # -------- 공통 유틸/컬럼 매핑 --------
+    def _find_col(cands):
+        lower_map = {c.lower(): c for c in df.columns}
+        for cand in cands:
+            if cand in df.columns:
+                return cand
+            if cand.lower() in lower_map:
+                return lower_map[cand.lower()]
+        return None
+    
+    def _ensure_list(x):
+        if isinstance(x, (list, tuple)): return list(x)
+        if isinstance(x, np.ndarray): return x.tolist()
+        if x is None: return []
+        try:
+            if pd.isna(x): return []
+        except Exception:
+            pass
+        if isinstance(x, str):
+            s = x.strip()
+            if not s or s.lower() in {"nan","none","null"}: return []
+            if (s.startswith('[') and s.endswith(']')) or (s.startswith('(') and s.endswith(')')):
+                try:
+                    p = ast.literal_eval(s)
+                    return list(p) if isinstance(p, (list, tuple, np.ndarray)) else [str(p)]
+                except Exception:
+                    return [s]
+            return [s]
+        return [str(x)]
 
-    st.subheader("장르 개수별 평균 평점 (배우 단위)")
-    actor_col = '배우명' if '배우명' in raw_df.columns else ('actor' if 'actor' in raw_df.columns else None)
-    if actor_col is None:
-        st.info("배우 식별 컬럼을 찾을 수 없어(배우명/actor) 이 섹션을 건너뜁니다.")
-        return
-    gdf = (pd.DataFrame({actor_col: raw_df[actor_col], 'genres': raw_df['genres'].apply(clean_cell_colab)})
-              .explode('genres').dropna(subset=[actor_col,'genres']))
-    genre_cnt = gdf.groupby(actor_col)['genres'].nunique().rename('장르개수')
-    actor_mean = (raw_df.groupby(actor_col, as_index=False)['score']
-                  .mean().rename(columns={'score':'배우평균점수'}))
-    df_actor = actor_mean.merge(genre_cnt.reset_index(), on=actor_col, how='left')
-    df_actor['장르개수'] = df_actor['장르개수'].fillna(0).astype(int)
-    df_actor = df_actor[df_actor['장르개수'] > 0].copy()
-    def bucket(n: int) -> str:
-        if n <= 2:  return '1~2개'
-        if n <= 4:  return '3~4개'
-        if n <= 6:  return '5~6개'
-        return '7개 이상'
-    df_actor['장르개수구간'] = pd.Categorical(
-        df_actor['장르개수'].apply(bucket),
-        categories=['1~2개','3~4개','5~6개','7개 이상'],
-        ordered=True
-    )
-    fig_box = px.box(
-        df_actor, x='장르개수구간', y='배우평균점수',
-        category_orders={'장르개수구간': ['1~2개','3~4개','5~6개','7개 이상']},
-        title="장르 개수별 배우 평균 점수 분포"
-    )
-    st.plotly_chart(fig_box, use_container_width=True)
+    score_col   = _find_col(['점수','score'])
+    role_col    = _find_col(['역할','role'])
+    gender_col  = _find_col(['성별','gender'])
+    ageg_col    = _find_col(['연령대','age_group'])
+    day_col     = _find_col(['방영요일','day'])
+    genre_col   = _find_col(['장르','genres'])
+    year_col    = _find_col(['방영년도','start airing'])
+    married_col = _find_col(['결혼여부','married'])
+    plat_col    = _find_col(['방영 플랫폼','방영플랫폼','플랫폼','플렛폼','Network','network','네트워크','방영채널','채널','방송사','Station','station','방영사']) or _find_col(['network'])
+
+    # -------- 1) 역할별 --------
+    st.subheader("1) 역할별 작품수 및 평균 점수")
+    if score_col and role_col and df[role_col].notna().any():
+        role_df = df[df[score_col].notna() & df[role_col].notna()].copy()
+        count_by_role = role_df[role_col].value_counts()
+        avg_by_role = role_df.groupby(role_col)[score_col].mean().round(3)
+        roles = count_by_role.index.tolist()
+
+        def _role_color(v:str):
+            s = str(v).lower()
+            if any(k in s for k in ['주연','lead','main']): return 'tab:orange'
+            if any(k in s for k in ['조연','support']):     return 'tab:green'
+            return 'lightgray'
+
+        bar_colors = [_role_color(r) for r in roles]
+
+        fig, ax1 = plt.subplots(figsize=(6,5))
+        bars = ax1.bar(roles, count_by_role[roles], color=bar_colors, alpha=0.75)
+        ax1.set_ylabel('작품 수'); ax1.set_xlabel('역할')
+        ax1.set_ylim(0, count_by_role.max()*1.25); ax1.grid(axis='y', ls='--', alpha=0.5)
+        for r,b in zip(roles, bars):
+            v = count_by_role[r]; ax1.text(b.get_x()+b.get_width()/2, v+count_by_role.max()*0.03, f"{v}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax2 = ax1.twinx()
+        ymin, ymax = float(avg_by_role.min()), float(avg_by_role.max())
+        ax2.set_ylim(ymin-0.05, ymax+0.05)
+        ax2.plot(roles, avg_by_role[roles], color='tab:blue', marker='o', lw=2, label='평균 점수')
+        for r in roles:
+            v = avg_by_role[r]; ax2.text(r, v+0.005, f"{v:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue'); ax2.legend(loc='upper right', fontsize=9)
+        plt.title('역할별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+        st.markdown("🔎 **인사이트**: 주연과 조연 간에 작품수와 평균 평점은 뚜렷한 상관관계를 보이지 않음.")
+    else:
+        st.info("역할/점수 컬럼이 없어 건너뜀.")
+
+    # -------- 2) 성별 --------
+    st.subheader("2) 성별 작품수 및 평균 점수")
+    if score_col and gender_col and df[gender_col].notna().any():
+        gdf = df[df[gender_col].isin(['남자','여자','male','female']) & df[score_col].notna()].copy()
+        # 한국어/영어 통일
+        gdf['_gender'] = gdf[gender_col].astype(str).str.lower().map({'남자':'남자','여자':'여자','male':'남자','female':'여자'})
+        count_by_gender = gdf['_gender'].value_counts()
+        avg_by_gender = gdf.groupby('_gender')[score_col].mean().round(3)
+        order = ['남자','여자']; order = [x for x in order if x in count_by_gender.index]
+        bar_colors = ['dodgerblue' if g=='남자' else 'hotpink' for g in order]
+
+        fig, ax1 = plt.subplots(figsize=(6,5))
+        bars = ax1.bar(order, count_by_gender[order].values, color=bar_colors, alpha=0.75)
+        ax1.set_ylabel('작품 수'); ax1.set_xlabel('성별')
+        ax1.set_ylim(0, count_by_gender.max()*1.25); ax1.grid(axis='y', ls='--', alpha=0.5)
+        for g,b in zip(order, bars):
+            v = count_by_gender[g]; ax1.text(b.get_x()+b.get_width()/2, v+count_by_gender.max()*0.03, f"{v}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax2 = ax1.twinx()
+        ymin, ymax = float(avg_by_gender.min()), float(avg_by_gender.max())
+        ax2.set_ylim(ymin-0.05, ymax+0.05)
+        ax2.plot(order, avg_by_gender[order].values, color='tab:blue', marker='o', lw=2, label='평균 점수')
+        for i,g in enumerate(order):
+            v = avg_by_gender[g]; ax2.text(i, v+0.005, f"{v:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue'); ax2.legend(loc='upper right', fontsize=9)
+        plt.title('성별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+        st.markdown("🔎 **인사이트**: 남성 배우가 여성 배우보다 캐스팅과 평점에서 약간 더 우호적 경향.")
+    else:
+        st.info("성별/점수 컬럼이 없어 건너뜀.")
+
+    # -------- 3) 연령대 --------
+    st.subheader("3) 연령대별 작품수 및 평균 점수")
+    if score_col and ageg_col and df[ageg_col].notna().any():
+        age_clean = df[ageg_col].dropna().astype(str).str.strip()
+        count_by_age = age_clean.value_counts()
+        def age_sort_key(s: str):
+            m = re.search(r'(\d+)', s); return (int(m.group(1)) if m else 10_000, s)
+        mean_by_age = (df[[ageg_col, score_col]].dropna().assign(**{ageg_col:lambda x:x[ageg_col].astype(str).str.strip()})
+                       .groupby(ageg_col)[score_col].mean().round(3))
+        labels = sorted(set(count_by_age.index)|set(mean_by_age.index), key=age_sort_key)
+        count_by_age = count_by_age.reindex(labels).fillna(0).astype(int)
+        mean_by_age = mean_by_age.reindex(labels)
+        def get_decade(label:str):
+            m = re.search(r'(\d+)', str(label)); return int(m.group(1)) if m else None
+        color_map = {30:'tab:orange', 50:'tab:green'}
+        bar_colors = [color_map.get(get_decade(lb),'lightgray') for lb in labels]
+
+        fig, ax1 = plt.subplots(figsize=(8,5))
+        x = np.arange(len(labels))
+        bars = ax1.bar(x, count_by_age.values, color=bar_colors, alpha=0.85)
+        ax1.set_ylabel('작품 수'); ax1.set_xlabel('연령대'); ax1.set_xticks(x); ax1.set_xticklabels(labels)
+        maxv = int(count_by_age.max()) if len(count_by_age) else 0
+        ax1.set_ylim(0, maxv*1.23 if maxv>0 else 1); ax1.grid(axis='y', ls='--', alpha=0.5)
+        pad = maxv*0.03 if maxv>0 else 0.05
+        for i,b in enumerate(bars):
+            v = int(count_by_age.values[i]); ax1.text(b.get_x()+b.get_width()/2, v+pad, f"{v}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax2 = ax1.twinx()
+        if mean_by_age.notna().any():
+            y = mean_by_age.values; valid = mean_by_age.dropna(); ymin,ymax = float(valid.min()), float(valid.max()); pad_y=0.02
+            ax2.set_ylim(ymin-pad_y, ymax+pad_y)
+            ax2.plot(x, y, color='tab:blue', marker='o', lw=2, label='평균 점수')
+            for i,val in enumerate(y):
+                if not np.isnan(val): ax2.text(i, val+0.005, f"{val:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=9, fontweight='bold')
+            ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue'); ax2.legend(loc='upper right', fontsize=9, frameon=False)
+        handles=[]
+        present_decades={get_decade(lb) for lb in labels}
+        for dec,color in color_map.items():
+            if dec in present_decades: handles.append(Patch(facecolor=color, label=f'{dec}대 작품 수'))
+        if handles: ax1.legend(handles=handles, loc='upper left', fontsize=9, frameon=False)
+        plt.title('연령대별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+        st.markdown("🔎 **인사이트**: 30대 배우의 작품 활동이 가장 많고, 50대 배우의 평균 평점이 가장 높음.")
+    else:
+        st.info("연령대/점수 컬럼이 없어 건너뜀.")
+
+    # -------- 4) 요일 --------
+    st.subheader("4) 요일별 작품수 및 평균 점수")
+    if score_col and day_col and df[day_col].notna().any():
+        tmp = df[[day_col, score_col]].copy()
+        tmp[day_col] = tmp[day_col].apply(_ensure_list)
+        ex = tmp.explode(day_col).dropna(subset=[day_col])
+        def _to_en(x):
+            s = str(x).strip().lower()
+            kor = {'월':'monday','화':'tuesday','수':'wednesday','목':'thursday','금':'friday','토':'saturday','일':'sunday',
+                   '월요일':'monday','화요일':'tuesday','수요일':'wednesday','목요일':'thursday','금요일':'friday','토요일':'saturday','일요일':'sunday'}
+            return kor.get(s, s)
+        ex['_day'] = ex[day_col].astype(str).map(_to_en)
+        ordered = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+        count_by_day = ex['_day'].value_counts().reindex(ordered).fillna(0).astype(int)
+        mean_by_day = ex.groupby('_day')[score_col].mean().reindex(ordered).round(3)
+
+        weekday_color = 'lightgray'
+        cmap = {'friday':'tab:purple','saturday':'tab:orange','sunday':'tab:green'}
+        bar_colors = [cmap.get(d, weekday_color) for d in ordered]
+
+        fig, ax1 = plt.subplots(figsize=(8,5))
+        bars = ax1.bar(ordered, count_by_day.values, color=bar_colors, alpha=0.85)
+        ax1.set_ylabel('작품 수'); ax1.set_xlabel('방영 요일')
+        maxc = int(count_by_day.max()) if len(count_by_day) else 0
+        ax1.set_ylim(0, maxc*1.15 if maxc>0 else 1); ax1.grid(axis='y', ls='--', alpha=0.5)
+        pad = maxc*0.03 if maxc>0 else 0.05
+        for d,b in zip(ordered, bars):
+            v = int(count_by_day.loc[d]); ax1.text(b.get_x()+b.get_width()/2, v+pad, f"{v}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax2 = ax1.twinx()
+        if mean_by_day.notna().any():
+            y = mean_by_day.values; valid = mean_by_day.dropna(); ymin,ymax = float(valid.min()), float(valid.max()); pad_y=0.015
+            ax2.set_ylim(ymin-pad_y, ymax+pad_y)
+            ax2.plot(ordered, y, color='tab:blue', marker='o', lw=2, label='평균 점수')
+            for x, val in zip(ordered, y):
+                if not np.isnan(val): ax2.text(x, val+0.01, f"{val:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=9, fontweight='bold')
+            ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue'); ax2.legend(loc='upper right', fontsize=9, frameon=False)
+        plt.title('요일별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+        st.markdown("🔎 **인사이트**: 주중은 작품 수가 많지만 평균 점수는 낮고, 주말은 작품 수 대비 높은 점수 경향.")
+    else:
+        st.info("방영요일/점수 컬럼이 없어 건너뜀.")
+
+    # -------- 5) 장르 --------
+    st.subheader("5) 장르별 작품수 및 평균 점수")
+    if score_col and genre_col and df[genre_col].notna().any():
+        gtmp = df[[genre_col, score_col]].copy()
+        gtmp[genre_col] = gtmp[genre_col].apply(_ensure_list)
+        gex = gtmp.explode(genre_col).dropna(subset=[genre_col])
+        genre_count = gex[genre_col].astype(str).value_counts()
+        genre_score = gex.groupby(genre_col)[score_col].mean().round(3)
+        gdf2 = (pd.DataFrame({'작품 수': genre_count, '평균 점수': genre_score})
+                .reset_index().rename(columns={'index':'장르'}))
+        if 'etc_g' in gdf2['장르'].values:
+            gdf2 = pd.concat([
+                gdf2[gdf2['장르']!='etc_g'].sort_values('작품 수', ascending=False),
+                gdf2[gdf2['장르']=='etc_g']
+            ])
+        default_color = 'lightgray'
+        color_map = {
+            'romance':'#ff7f7f','drama':'#ff9999','thriller':'#4daf4a','sf':'#377eb8','action':'#984ea3',
+            'hist_war':'#a65628','comedy':'#fdae61','society':'#80cdc1','family':'#8dd3c7','etc_g':'#b3b3b3'
+        }
+        bar_colors = [color_map.get(str(g).lower(), default_color) for g in gdf2['장르']]
+
+        fig, ax1 = plt.subplots(figsize=(10,6))
+        ax1.set_ylim(0, gdf2['작품 수'].max()*1.07)
+        bars = ax1.bar(gdf2['장르'], gdf2['작품 수'], color=bar_colors, alpha=0.85, edgecolor='white')
+        ax1.set_ylabel('작품 수'); ax1.set_xlabel('장르')
+        ax1.set_xticklabels(gdf2['장르'], rotation=45, ha='right'); ax1.grid(axis='y', ls='--', alpha=0.5)
+        pad = gdf2['작품 수'].max()*0.02
+        for i,v in enumerate(gdf2['작품 수']):
+            ax1.text(i, v+pad, f"{int(v)}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax2 = ax1.twinx()
+        ax2.plot(gdf2['장르'], gdf2['평균 점수'], color='tab:blue', marker='o', lw=2, label='평균 점수')
+        ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue')
+        ax2.set_ylim(gdf2['평균 점수'].min()-0.02, gdf2['평균 점수'].max()+0.02)
+        for i,v in enumerate(gdf2['평균 점수']):
+            ax2.text(i, v+0.005, f"{v:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=10, fontweight='bold')
+        plt.title('장르별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+        st.markdown("🔎 **인사이트**: 로맨스/드라마는 작품 수 대비 평점이 낮고, 스릴러·SF·액션·전쟁(hist_war)은 높은 평점 경향.")
+    else:
+        st.info("장르/점수 컬럼이 없어 건너뜀.")
+
+    # -------- 6) 플랫폼 --------
+    st.subheader("6) 플랫폼별 작품수 및 평균 점수")
+    if plat_col and score_col and df[plat_col].notna().any():
+        ptmp = df[[plat_col, score_col]].copy()
+        ptmp[plat_col] = ptmp[plat_col].apply(_ensure_list)
+        pex = ptmp.explode(plat_col).dropna(subset=[plat_col])
+        pex['_plat'] = pex[plat_col].astype(str).str.strip()
+        platform_count = pex['_plat'].value_counts()
+        platform_score = pex.groupby('_plat')[score_col].mean().round(3)
+        pdf = (pd.DataFrame({'작품 수': platform_count, '평균 점수': platform_score})
+               .reset_index().rename(columns={'index':'플랫폼'})
+               .sort_values('작품 수', ascending=False).reset_index(drop=True))
+        norm = pdf['플랫폼'].str.strip().str.lower()
+        mask_last = norm.eq('etc_p')
+        pdf = pd.concat([pdf[~mask_last], pdf[mask_last]], ignore_index=True)
+
+        default_color = '#e5e7eb'
+        cmap = {
+            'KBS':'#ff7f7f','KBS2':'#6366f1','MBC':'#10b981','SBS':'#f59e0b','JTBC':'#8b5cf6','TVN':'#ef4444','OCN':'#f97316',
+            'ENA':'#0ea5e9','MBN':'#84cc16','CHANNEL A':'#06b6d4','NETFLIX':'#dc2626','WAVVE':'#2563eb','TVING':'#e11d48','ETC_P':'#9ca3af'
+        }
+        upp = pdf['플랫폼'].astype(str).str.upper()
+        bar_colors = [cmap.get(x, default_color) for x in upp]
+
+        fig, ax1 = plt.subplots(figsize=(11,6))
+        x = np.arange(len(pdf))
+        bars = ax1.bar(x, pdf['작품 수'], color=bar_colors, alpha=0.9, edgecolor='white', linewidth=0.5)
+        ax1.set_ylabel('작품 수'); ax1.set_xlabel('플랫폼')
+        ax1.set_xticks(x); ax1.set_xticklabels(pdf['플랫폼'], rotation=45, ha='right')
+        ax1.set_ylim(0, pdf['작품 수'].max()*1.13); ax1.grid(axis='y', ls='--', alpha=0.5)
+        for i,b in enumerate(bars):
+            v = pdf.loc[i,'작품 수']; ax1.text(b.get_x()+b.get_width()/2, v+pdf['작품 수'].max()*0.015, f"{int(v)}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax2 = ax1.twinx()
+        if pdf['평균 점수'].notna().any():
+            y = pdf['평균 점수'].values; ymin,ymax = float(pdf['평균 점수'].min()), float(pdf['평균 점수'].max())
+            ax2.set_ylim(ymin-0.02, ymax+0.02)
+            ax2.plot(x, y, color='tab:blue', marker='o', lw=2, label='평균 점수')
+            for i,val in enumerate(y):
+                if pd.notna(val): ax2.text(i, val+0.005, f"{val:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=10, fontweight='bold')
+            ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue'); ax2.legend(loc='upper right', fontsize=9)
+        plt.title('플랫폼별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+        st.markdown("🔎 **인사이트**: 지상파는 작품 수 대비 평점이 낮고, tvN은 작품 수/평점 모두 우수하며, **NETFLIX**의 평균 평점이 두드러짐.")
+    else:
+        st.info("플랫폼/점수 컬럼이 없어 건너뜀.")
+
+    # -------- 7) 방영 시기(연도) --------
+    st.subheader("7) 방영 시기별 작품수 및 평균 점수")
+    if score_col and year_col and df[year_col].notna().any():
+        dfy = df[[year_col, score_col]].dropna().copy()
+        dfy[year_col] = pd.to_numeric(dfy[year_col], errors='coerce')
+        dfy = dfy.dropna(subset=[year_col]).astype({year_col:int})
+        mean_by_year = dfy.groupby(year_col)[score_col].mean().round(3).sort_index()
+        count_by_year = dfy[year_col].value_counts().sort_index()
+
+        fig, ax1 = plt.subplots(figsize=(12,6))
+        color1 = 'dimgray'
+        ax1.set_xlabel('방영 시기'); ax1.set_ylabel('작품 수', color=color1)
+        ax1.plot(count_by_year.index, count_by_year.values, marker='o', color=color1, alpha=0.85, label='작품 수')
+        ax1.tick_params(axis='y', labelcolor=color1); ax1.grid(axis='y', ls='--', alpha=0.4)
+        for x_, y_ in zip(count_by_year.index, count_by_year.values):
+            ax1.text(x_, y_+0.5, f"{int(y_)}", ha='center', va='bottom', fontsize=9, color=color1)
+
+        ax2 = ax1.twinx()
+        color2 = 'slateblue'
+        ymin,ymax = float(mean_by_year.min()), float(mean_by_year.max())
+        ax2.set_ylabel('평균 점수', color=color2)
+        ax2.plot(mean_by_year.index, mean_by_year.values, marker='o', color=color2, lw=2, label='평균 점수')
+        ax2.tick_params(axis='y', labelcolor=color2)
+        ax2.set_ylim(ymin-0.05, ymax+0.05)
+        for x_, y_ in zip(mean_by_year.index, mean_by_year.values):
+            ax2.text(x_, y_+0.01, f"{y_:.3f}", ha='center', va='bottom', fontsize=9, color=color2)
+        plt.title('방영 시기별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+        st.markdown("🔎 **인사이트**: 2018~2020년 사이 평균 점수 상승. 2019년 전후 OTT 투자로 촬영 퀄리티 향상 → 평점 상승 추정.")
+    else:
+        st.info("방영년도/점수 컬럼이 없어 건너뜀.")
+
+    # -------- 8) 주연 배우 혼인 상태 --------
+    st.subheader("8) 주연배우의 혼인 상태별 평점 차이")
+    if score_col and role_col and married_col:
+        def _is_lead(v): return any(k in str(v).lower() for k in ['주연','lead','main'])
+        mdf = df[df[role_col].apply(_is_lead)].copy()
+        if not mdf.empty and mdf[married_col].notna().any():
+            mdf['_mar'] = mdf[married_col].apply(lambda x: '미혼' if str(x).strip()=='미혼' else '미혼 외')
+            avg_by_m = mdf.groupby('_mar')[score_col].mean().round(3)
+            cnt_by_m = mdf['_mar'].value_counts()
+            order = [x for x in ['미혼','미혼 외'] if x in cnt_by_m.index]
+            colors = ['orange' if s=='미혼' else 'gray' for s in order]
+
+            fig, ax1 = plt.subplots(figsize=(6,5))
+            bars = ax1.bar(order, cnt_by_m[order].values, color=colors, alpha=0.7)
+            ax1.set_ylabel('작품 수'); ax1.set_xlabel('혼인 상태')
+            ax1.set_ylim(0, cnt_by_m.max()*1.2); ax1.grid(axis='y', ls='--', alpha=0.5)
+            for i,v in enumerate(cnt_by_m[order].values):
+                ax1.text(i, v+0.5, f"{int(v)}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+            ax2 = ax1.twinx()
+            ymin,ymax = float(avg_by_m.min()), float(avg_by_m.max())
+            ax2.set_ylim(ymin-0.05, ymax+0.05)
+            ax2.plot(order, avg_by_m[order].values, color='tab:blue', marker='o', lw=2, label='평균 점수')
+            for i,v in enumerate(avg_by_m[order].values):
+                ax2.text(i, v+0.005, f"{v:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=10, fontweight='bold')
+            ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue'); ax2.legend(loc='upper right', fontsize=9)
+            plt.title('주연배우 혼인 상태별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+            st.markdown("🔎 **인사이트**: 미혼 배우가 주연 캐스팅에서 이점이 있으며, 평점도 혼인 여부별 차이가 관찰됨.")
+        else:
+            st.info("주연/결혼여부 데이터가 부족하여 건너뜀.")
+    else:
+        st.info("역할/결혼여부/점수 컬럼이 없어 건너뜀.")
+
+    # -------- 9) 주연 배우 성별×혼인 상태 --------
+    st.subheader("9) 주연배우 남자/여자 혼인 상태별 작품수 및 평균 점수")
+    if score_col and role_col and married_col and gender_col:
+        def _is_lead(v): return any(k in str(v).lower() for k in ['주연','lead','main'])
+        mdf = df[(df[role_col].apply(_is_lead)) &
+                 (df[gender_col].notna()) &
+                 (df[married_col].notna()) &
+                 (df[score_col].notna())].copy()
+        if not mdf.empty:
+            mdf['_gender'] = mdf[gender_col].astype(str).str.lower().map({'남자':'남자','여자':'여자','male':'남자','female':'여자'})
+            mdf['_mar'] = mdf[married_col].apply(lambda x: '미혼' if str(x).strip()=='미혼' else '미혼 외')
+            mdf['_grp'] = mdf['_gender'] + '-' + mdf['_mar']
+            avg_by_grp = mdf.groupby('_grp')[score_col].mean().round(3)
+            cnt_by_grp = mdf['_grp'].value_counts()
+            order = [g for g in ['남자-미혼','남자-미혼 외','여자-미혼','여자-미혼 외'] if g in cnt_by_grp.index]
+            cmap = {'남자-미혼':'dodgerblue','남자-미혼 외':'gray','여자-미혼':'hotpink','여자-미혼 외':'gray'}
+            bar_colors = [cmap[g] for g in order]
+
+            fig, ax1 = plt.subplots(figsize=(10,6))
+            bars = ax1.bar(order, cnt_by_grp[order].values, color=bar_colors, alpha=0.75)
+            ax1.set_ylabel('작품 수'); ax1.set_xlabel('성별-혼인 상태')
+            ax1.set_ylim(0, cnt_by_grp[order].max()*1.25); ax1.grid(axis='y', ls='--', alpha=0.5)
+            for g,b in zip(order, bars):
+                v = cnt_by_grp[g]; ax1.text(b.get_x()+b.get_width()/2, v+cnt_by_grp[order].max()*0.03, f"{int(v)}", ha='center', va='bottom', fontsize=11, fontweight='bold')
+            ax2 = ax1.twinx()
+            ymin,ymax = float(avg_by_grp[order].min()), float(avg_by_grp[order].max())
+            ax2.set_ylim(ymin-0.05, ymax+0.05)
+            # 남/여 각자 선으로 연결
+            male_order   = [g for g in order if g.startswith('남자')]
+            female_order = [g for g in order if g.startswith('여자')]
+            ax2.plot(male_order,   avg_by_grp[male_order].values,   color='tab:blue', marker='o', lw=2, label='평균 점수')
+            ax2.plot(female_order, avg_by_grp[female_order].values, color='tab:blue', marker='o', lw=2)
+            for g in order:
+                v = avg_by_grp[g]; ax2.text(g, v+0.005, f"{v:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=11, fontweight='bold')
+            ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue'); ax2.legend(loc='upper right', fontsize=9)
+            plt.title('주연배우 남자/여자 혼인 상태별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+
+            # 간단 비교 인사이트 (데이터가 있으면 차이 계산)
+            try:
+                male_diff = float(avg_by_grp['남자-미혼'] - avg_by_grp['남자-미혼 외']) if {'남자-미혼','남자-미혼 외'} <= set(avg_by_grp.index) else np.nan
+                female_diff = float(avg_by_grp['여자-미혼'] - avg_by_grp['여자-미혼 외']) if {'여자-미혼','여자-미혼 외'} <= set(avg_by_grp.index) else np.nan
+                if np.isfinite(male_diff) and np.isfinite(female_diff):
+                    st.markdown(f"🔎 **인사이트**: 남녀 모두 미혼 집단의 평균 평점이 더 높음. 여성(Δ≈{female_diff:.3f})이 남성(Δ≈{male_diff:.3f})보다 격차가 큼.")
+                else:
+                    st.markdown("🔎 **인사이트**: 남녀 모두 미혼 집단이 상대적으로 높은 평균 평점을 보이는 경향.")
+            except Exception:
+                st.markdown("🔎 **인사이트**: 남녀 모두 미혼 집단이 상대적으로 높은 평균 평점을 보이는 경향.")
+        else:
+            st.info("주연/성별/결혼여부/점수 유효 데이터가 부족하여 건너뜀.")
+    else:
+        st.info("역할/성별/결혼여부/점수 컬럼이 없어 건너뜀.")
 
 def page_filter():
     st.header("실시간 필터")
