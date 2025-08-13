@@ -718,15 +718,18 @@ def page_dist():
         ptmp[plat_col] = ptmp[plat_col].apply(_ensure_list)
         pex = ptmp.explode(plat_col).dropna(subset=[plat_col])
         pex['_plat'] = pex[plat_col].astype(str).str.strip()
+    
+        # 안전하게 컬럼 명시 생성
         platform_count = pex['_plat'].value_counts()
         platform_score = pex.groupby('_plat')[score_col].mean().round(3)
-        pdf = (pd.DataFrame({'작품 수': platform_count, '평균 점수': platform_score})
-               .reset_index().rename(columns={'index':'플랫폼'})
-               .sort_values('작품 수', ascending=False).reset_index(drop=True))
-        norm = pdf['플랫폼'].str.strip().str.lower()
-        mask_last = norm.eq('etc_p')
+        p_count = platform_count.rename_axis('플랫폼').reset_index(name='작품 수')
+        p_score = platform_score.rename_axis('플랫폼').reset_index(name='평균 점수')
+        pdf = p_count.merge(p_score, on='플랫폼', how='left').sort_values('작품 수', ascending=False).reset_index(drop=True)
+    
+        # ETC_P 맨 뒤 (대소문자 무시)
+        mask_last = pdf['플랫폼'].astype(str).str.strip().str.lower().eq('etc_p')
         pdf = pd.concat([pdf[~mask_last], pdf[mask_last]], ignore_index=True)
-
+    
         default_color = '#e5e7eb'
         cmap = {
             'KBS':'#ff7f7f','KBS2':'#6366f1','MBC':'#10b981','SBS':'#f59e0b','JTBC':'#8b5cf6','TVN':'#ef4444','OCN':'#f97316',
@@ -734,7 +737,7 @@ def page_dist():
         }
         upp = pdf['플랫폼'].astype(str).str.upper()
         bar_colors = [cmap.get(x, default_color) for x in upp]
-
+    
         fig, ax1 = plt.subplots(figsize=(11,6))
         x = np.arange(len(pdf))
         bars = ax1.bar(x, pdf['작품 수'], color=bar_colors, alpha=0.9, edgecolor='white', linewidth=0.5)
@@ -743,18 +746,24 @@ def page_dist():
         ax1.set_ylim(0, pdf['작품 수'].max()*1.13); ax1.grid(axis='y', ls='--', alpha=0.5)
         for i,b in enumerate(bars):
             v = pdf.loc[i,'작품 수']; ax1.text(b.get_x()+b.get_width()/2, v+pdf['작품 수'].max()*0.015, f"{int(v)}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+    
         ax2 = ax1.twinx()
         if pdf['평균 점수'].notna().any():
-            y = pdf['평균 점수'].values; ymin,ymax = float(pdf['평균 점수'].min()), float(pdf['평균 점수'].max())
+            y = pdf['평균 점수'].values
+            ymin,ymax = float(np.nanmin(y)), float(np.nanmax(y))
             ax2.set_ylim(ymin-0.02, ymax+0.02)
             ax2.plot(x, y, color='tab:blue', marker='o', lw=2, label='평균 점수')
             for i,val in enumerate(y):
-                if pd.notna(val): ax2.text(i, val+0.005, f"{val:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=10, fontweight='bold')
+                if np.isfinite(val):
+                    ax2.text(i, val+0.005, f"{val:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=10, fontweight='bold')
             ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue'); ax2.legend(loc='upper right', fontsize=9)
-        plt.title('플랫폼별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+    
+        plt.title('플랫폼별 작품수 및 평균 점수')
+        st.pyplot(fig, use_container_width=True)
         st.markdown("🔎 **인사이트**: 지상파는 작품 수 대비 평점이 낮고, tvN은 작품 수/평점 모두 우수하며, **NETFLIX**의 평균 평점이 두드러짐.")
     else:
         st.info("플랫폼/점수 컬럼이 없어 건너뜀.")
+
 
     # -------- 7) 방영 시기(연도) --------
     st.subheader("7) 방영 시기별 작품수 및 평균 점수")
