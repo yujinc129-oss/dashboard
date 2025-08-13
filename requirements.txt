@@ -1,0 +1,11 @@
+streamlit
+pandas
+matplotlib
+scikit-learn
+wordcloud
+plotly
+xgboost
+scipy
+pillow
+seaborn
+tabulate
