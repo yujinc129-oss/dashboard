@@ -133,9 +133,11 @@ def _inject_sparrow_css():
     st.markdown("""
     <style>
       /* ---------- Layout / Typography ---------- */
-      .block-container{padding-top:5.5rem; padding-bottom:2.2rem;}
+      .block-container{padding-top:4.8rem; padding-bottom:2.6rem;}
       h1,h2,h3{font-weight:800;}
       h3, .stPlotlyChart { margin-top: 1rem !important; }
+      /* Plotly 컨테이너 위쪽 간격 조금 */
+      div[data-testid="stPlotlyChart"]{ margin-top:8px; }
       /* ---------- Sidebar ---------- */
       section[data-testid="stSidebar"]{
         width:220px !important; min-width:220px;
