@@ -17,6 +17,9 @@ SAFE_MAX_PRUNED_ALPHAS   = int(os.getenv("CHEMI_MAX_PRUNED", "150"))     # Prune
 SAFE_GS_COOLDOWN_SEC     = int(os.getenv("CHEMI_GS_COOLDOWN", "15"))    # GridSearch 연타 방지
 SAFE_PRED_COOLDOWN_SEC   = int(os.getenv("CHEMI_PRED_COOLDOWN", "5"))   # 예측 연타 방지
 
+# 노트북과 결과를 1:1로 맞추기 위한 플래그 (ccp_alpha 서브샘플링 금지 등)
+STRICT_NOTEBOOK_MATCH = True
+
 # ---- dependency guard (optional) ----
 import importlib.util
 _missing = [m for m in ("numpy","scipy","sklearn","joblib","threadpoolctl","xgboost") if importlib.util.find_spec(m) is None]
