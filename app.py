@@ -172,6 +172,20 @@ def _inject_sparrow_css():
       .block-container{padding-top:1.4rem; padding-bottom:2.2rem;}
       .kpi-row{ margin-bottom: 18px; }
       div[data-testid="stPlotlyChart"]{ margin-top:8px; }
+      .safe-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  padding:4px 8px !important;     /* ← 여백 줄임 */
+  font-size:12px !important;      /* ← 글자 크기 줄임 */
+  line-height:1.1;                
+  border-radius:10px !important;  /* ← 둥근 정도 축소 */
+  background:#0b1220;             /* 배경색 (원래 쓰던 색) */
+  color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+  width:auto;                     /* 콘텐츠 만큼만 */
+  max-width:fit-content;
+}
     </style>
     """, unsafe_allow_html=True)
 
@@ -1179,7 +1193,7 @@ with st.sidebar:
         st.markdown('</div>', unsafe_allow_html=True)
 
     sm_text = "ON" if SAFE_MODE else "OFF"
-    st.markdown(f'<div class="sb-card"><h4>Safe Mode: {sm_text}</h4>', unsafe_allow_html=True)
+    st.markdown(f'<div class="safe-chip"><h4>Safe Mode: {sm_text}</h4>', unsafe_allow_html=True)
     st.caption("test_size = 0.2, random_state = 42")
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
