@@ -192,7 +192,7 @@ def _inject_sparrow_css():
 
 /* ▶ 모델 설정 카드: 메타(작게, 한 줄) */
     .sb-card.sb-config .sb-card-title{
-      margin:0 0 4px 0; font-size:12px; font-weight:800; color:#334155;
+      margin:0 0 4px 0; font-size:12px; font-weight:800; background:#f8fafc !important; color:#0f172a !important; 
     }
     .sb-card.sb-config .meta{
       font-size:11px; color:#6b7280;
