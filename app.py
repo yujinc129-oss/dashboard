@@ -926,7 +926,7 @@ def page_tuning():
                 "환경변수 CHEMI_SAFE_MODE=0 으로 해제할 수 있어요.")
 
     scoring = st.selectbox("스코어링", ["neg_root_mean_squared_error", "r2"], index=0)
-    cv = st.number_input("CV 폴드 수", 3, 5 if SAFE_MODE else 10, 5 if SAFE_MODE else 5, 1)
+    cv = st.number_input("CV 폴드 수", 5 if SAFE_MODE else 10, 5 if SAFE_MODE else 5, 1)
     cv_shuffle = st.checkbox("CV 셔플(shuffle)", value=False)
 
     # --- 파라미터 선택기 ---
@@ -975,34 +975,34 @@ def page_tuning():
 
     # --- 기본 그리드 ---
     default_param_grids = {
-        "KNN": {"poly__degree":[2,3], "knn__n_neighbors":[3,4,5]},
-        "Linear Regression (Poly)": {"poly__degree":[1,2,3]},
-        "Ridge": {"poly__degree":[2,3], "model__alpha":[0.1,1,10,100,1000]},
-        "Lasso": {"poly__degree":[2,3], "model__alpha":[0.001,0.01,0.1,1]},
-        "ElasticNet": {"poly__degree":[2,3], "model__alpha":[0.001,0.01,0.1,1], "model__l1_ratio":[0.1,0.5,0.9]},
-        "SGDRegressor": {"poly__degree":[1,2,3], "model__learning_rate":["constant","invscaling","adaptive"]},
-        "SVR": {"model__kernel":["poly","rbf","sigmoid"], "model__degree":[1,2,3]},
+        "KNN": {"poly__degree":[3], "knn__n_neighbors":[3]},
+        "Linear Regression (Poly)": {"poly__degree":[1]},
+        "Ridge": {"poly__degree":[3], "model__alpha":[10,100,1000]},
+        "Lasso": {"poly__degree":[3], "model__alpha":[0.001,0.01,0.1]},
+        "ElasticNet": {"poly__degree":[3], "model__alpha":[0.001,0.01], "model__l1_ratio":[0.5,0.9]},
+        "SGDRegressor": {"poly__degree":[1], "model__learning_rate":["constant","invscaling","adaptive"]},
+        "SVR": {"model__kernel":["poly","rbf","sigmoid"], "model__degree":[3]},
         "Decision Tree": {
-            "model__max_depth":[10,15,20],
-            "model__min_samples_split":[5,6,7,8],
-            "model__min_samples_leaf":[2,3],
-            "model__max_leaf_nodes":[None,10,20],
+            "model__max_depth":[15],
+            "model__min_samples_split":[7,8],
+            "model__min_samples_leaf":[2],
+            "model__max_leaf_nodes":[None],
         },
         "Decision Tree (Pruned)": {
             "model__ccp_alpha": [0.0, 3.146231327807963e-05, 7.543988269811632e-05]
         },
         "Random Forest": {
-            "model__n_estimators":[200,300],
-            "model__min_samples_split":[5,6,7,8],
-            "model__max_depth":[10,15,20,25],
+            "model__n_estimators":[200],
+            "model__min_samples_split":[5,6],
+            "model__max_depth":[20,25],
         },
     }
     if "XGBRegressor" in model_zoo:
         default_param_grids["XGBRegressor"] = {
-            "model__n_estimators":[100, 200],
-            "model__max_depth":[1, 5, 10],
-            "model__learning_rate":[0.1,0.2,0.3],
-            "model__colsample_bytree":[0.8,1.0],
+            "model__n_estimators":[100],
+            "model__max_depth":[1],
+            "model__learning_rate":[0.2],
+            "model__colsample_bytree":[1.0],
         }
 
     model_name = st.selectbox("튜닝할 모델 선택", list(model_zoo.keys()), index=0)
