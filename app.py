@@ -13,7 +13,7 @@ import os, time
 SAFE_MODE = os.getenv("CHEMI_SAFE_MODE", "1") not in ("0", "false", "False")
 SAFE_MAX_ROWS            = int(os.getenv("CHEMI_MAX_ROWS", "5000"))     # 튜닝에서 사용할 최대 행 수(샘플)
 SAFE_MAX_GSCV_EVALS      = int(os.getenv("CHEMI_MAX_EVALS", "120"))     # (그리드 조합수 × CV 폴드수)
-SAFE_MAX_PRUNED_ALPHAS   = int(os.getenv("CHEMI_MAX_PRUNED", "150"))     # Pruned 트리 후보 상한
+#SAFE_MAX_PRUNED_ALPHAS   = int(os.getenv("CHEMI_MAX_PRUNED", "150"))     # Pruned 트리 후보 상한
 SAFE_GS_COOLDOWN_SEC     = int(os.getenv("CHEMI_GS_COOLDOWN", "15"))    # GridSearch 연타 방지
 SAFE_PRED_COOLDOWN_SEC   = int(os.getenv("CHEMI_PRED_COOLDOWN", "5"))   # 예측 연타 방지
 
