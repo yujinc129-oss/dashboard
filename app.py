@@ -350,7 +350,7 @@ def page_overview():
 
     c1, c2 = st.columns([1, 1])
 with c1:
-st.subheader("최근 연도 상위 작품")
+    st.subheader("최근 연도 상위 작품")
     _df = raw_df.copy()
     _df['start airing'] = pd.to_numeric(_df['start airing'], errors='coerce')
     _df['score'] = pd.to_numeric(_df['score'], errors='coerce')
