@@ -364,7 +364,7 @@ def page_overview():
             top_recent = recent_unique.sort_values('score', ascending=False).head(10)
             fig_recent = px.bar(top_recent, x=name_col, y='score', text='score')
             fig_recent.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-            fig_recent.update_layout(height=400, margin=dict(l=10, r=10, t=20, b=40))
+            fig_recent.update_layout(height=380, margin=dict(l=9, r=9, t=18, b=35))
             st.plotly_chart(fig_recent, use_container_width=True)
         else:
             st.info("최근 연도 데이터가 없습니다.")
