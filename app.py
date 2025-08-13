@@ -139,7 +139,7 @@ def _inject_sparrow_css():
       /* ---------- Sidebar ---------- */
       section[data-testid="stSidebar"]{
         width:220px !important; min-width:220px;
-        background:#ffffff; color:#e5e7eb; border-right:1px solid #070c16;
+        background:#ffffff; color:#111827; border-right:1px solid #070c16;
       }
       .sb-wrap{display:flex; flex-direction:column; height:100%;}
       .sb-brand{display:flex; align-items:center; gap:10px; padding:14px 12px 10px;}
