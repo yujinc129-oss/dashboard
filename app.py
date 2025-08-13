@@ -183,8 +183,6 @@ def _inject_sparrow_css():
   background:#1e293b;             /* 배경색 (원래 쓰던 색) */
   color:#fff;
   box-shadow:0 2px 8px rgba(0,0,0,.12);
-  width:auto;                     /* 콘텐츠 만큼만 */
-  max-width:fit-content;
 }
     </style>
     """, unsafe_allow_html=True)
