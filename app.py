@@ -667,22 +667,27 @@ def page_dist():
         gtmp = df[[genre_col, score_col]].copy()
         gtmp[genre_col] = gtmp[genre_col].apply(_ensure_list)
         gex = gtmp.explode(genre_col).dropna(subset=[genre_col])
+    
+        # 안전하게 컬럼 명시 생성
         genre_count = gex[genre_col].astype(str).value_counts()
         genre_score = gex.groupby(genre_col)[score_col].mean().round(3)
-        gdf2 = (pd.DataFrame({'작품 수': genre_count, '평균 점수': genre_score})
-                .reset_index().rename(columns={'index':'장르'}))
-        if 'etc_g' in gdf2['장르'].values:
-            gdf2 = pd.concat([
-                gdf2[gdf2['장르']!='etc_g'].sort_values('작품 수', ascending=False),
-                gdf2[gdf2['장르']=='etc_g']
-            ])
+    
+        g_count = genre_count.rename_axis('장르').reset_index(name='작품 수')
+        g_score = genre_score.rename_axis('장르').reset_index(name='평균 점수')
+        gdf2 = g_count.merge(g_score, on='장르', how='left')
+    
+        # etc_g는 맨 뒤로 (대소문자 무시)
+        mask_etc = gdf2['장르'].astype(str).str.lower().eq('etc_g')
+        gdf2 = pd.concat([gdf2[~mask_etc].sort_values('작품 수', ascending=False),
+                          gdf2[mask_etc]], ignore_index=True)
+    
         default_color = 'lightgray'
         color_map = {
             'romance':'#ff7f7f','drama':'#ff9999','thriller':'#4daf4a','sf':'#377eb8','action':'#984ea3',
             'hist_war':'#a65628','comedy':'#fdae61','society':'#80cdc1','family':'#8dd3c7','etc_g':'#b3b3b3'
         }
         bar_colors = [color_map.get(str(g).lower(), default_color) for g in gdf2['장르']]
-
+    
         fig, ax1 = plt.subplots(figsize=(10,6))
         ax1.set_ylim(0, gdf2['작품 수'].max()*1.07)
         bars = ax1.bar(gdf2['장르'], gdf2['작품 수'], color=bar_colors, alpha=0.85, edgecolor='white')
@@ -691,16 +696,20 @@ def page_dist():
         pad = gdf2['작품 수'].max()*0.02
         for i,v in enumerate(gdf2['작품 수']):
             ax1.text(i, v+pad, f"{int(v)}", ha='center', va='bottom', fontsize=10, fontweight='bold')
+    
         ax2 = ax1.twinx()
         ax2.plot(gdf2['장르'], gdf2['평균 점수'], color='tab:blue', marker='o', lw=2, label='평균 점수')
         ax2.set_ylabel('평균 점수', color='tab:blue'); ax2.tick_params(axis='y', colors='tab:blue')
         ax2.set_ylim(gdf2['평균 점수'].min()-0.02, gdf2['평균 점수'].max()+0.02)
         for i,v in enumerate(gdf2['평균 점수']):
             ax2.text(i, v+0.005, f"{v:.3f}", color='tab:blue', ha='center', va='bottom', fontsize=10, fontweight='bold')
-        plt.title('장르별 작품수 및 평균 점수'); st.pyplot(fig, use_container_width=True)
+    
+        plt.title('장르별 작품수 및 평균 점수')
+        st.pyplot(fig, use_container_width=True)
         st.markdown("🔎 **인사이트**: 로맨스/드라마는 작품 수 대비 평점이 낮고, 스릴러·SF·액션·전쟁(hist_war)은 높은 평점 경향.")
     else:
         st.info("장르/점수 컬럼이 없어 건너뜀.")
+
 
     # -------- 6) 플랫폼 --------
     st.subheader("6) 플랫폼별 작품수 및 평균 점수")
