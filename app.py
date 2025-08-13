@@ -133,7 +133,7 @@ def _inject_sparrow_css():
     st.markdown("""
     <style>
       /* ---------- Layout / Typography ---------- */
-      .block-container{padding-top:5rem; padding-bottom:5rem;}
+      .block-container{padding-top:5.5rem; padding-bottom:2.2rem;}
       h1,h2,h3{font-weight:800;}
       h3, .stPlotlyChart { margin-top: 1rem !important; }
       /* ---------- Sidebar ---------- */
