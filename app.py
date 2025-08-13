@@ -920,11 +920,6 @@ def page_tuning():
         st.session_state["split_key"] = float(0.2)
     X_train, X_test, y_train, y_test = st.session_state["split_colab"]
 
-    # Safe Mode 안내
-    if SAFE_MODE:
-        st.info("🛟 Safe Mode: 데이터가 크면 자동 샘플링하고, 과도한 GridSearch를 차단합니다. "
-                "환경변수 CHEMI_SAFE_MODE=0 으로 해제할 수 있어요.")
-
     scoring = st.selectbox("스코어링", ["neg_root_mean_squared_error", "r2"], index=0)
     cv = st.number_input("CV 폴드 수", 3, 5 if SAFE_MODE else 10, 5 if SAFE_MODE else 5, 1)
     cv_shuffle = st.checkbox("CV 셔플(shuffle)", value=False)
