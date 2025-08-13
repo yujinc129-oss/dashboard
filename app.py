@@ -1031,7 +1031,7 @@ def page_predict():
         df_best_per_cat = df_scored.loc[idx_best].copy()
 
         # 🔻 여기 슬라이더를 바꿔도 current_pred/state는 유지되므로 초기화 없음
-        top_n = st.slider("추천 개수", 3, 7, 5 if not SAFE_MODE else 3, key="rec_topn_slider")
+        top_n = st.slider("추천 개수", 3, 4, 3 if not SAFE_MODE else 3, key="rec_topn_slider")
         df_top = df_best_per_cat.sort_values(["리프트", "예측"], ascending=False).head(top_n).reset_index(drop=True)
 
         st.dataframe(df_top[["카테고리","변경안"]], use_container_width=True)
