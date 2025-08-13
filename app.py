@@ -1009,21 +1009,32 @@ def page_tuning():
 
     # Pruned 알파 후보 자동 생성 + 상한
     if model_name == "Decision Tree (Pruned)":
-        X_train_transformed = preprocessor.fit_transform(X_train, y_train)
+        # ✅ 전처리 한 번만 fit → 후보 생성과 스윕에서 같은 행렬 사용
+        X_train_t = preprocessor.fit_transform(X_train, y_train)
+        X_test_t  = preprocessor.transform(X_test)
+        st.session_state["_prune_X_train_t"] = X_train_t
+        st.session_state["_prune_X_test_t"]  = X_test_t
+    
         tmp_tree = DecisionTreeRegressor(random_state=SEED)
-        path = tmp_tree.cost_complexity_pruning_path(X_train_transformed, y_train)
+        path = tmp_tree.cost_complexity_pruning_path(X_train_t, y_train)
+    
         ccp_alphas = np.array(path.ccp_alphas, dtype=float)
         ccp_alphas = ccp_alphas[ccp_alphas >= 0.0]
         if ccp_alphas.size > 0:
             ccp_alphas = np.unique(ccp_alphas)
         if ccp_alphas.size > 1:
-            ccp_alphas = ccp_alphas[:-1]
+            ccp_alphas = ccp_alphas[:-1]  # 마지막(완전 가지치기)은 제외
+    
+        # 노트북에서 강제로 포함하던 값
         must_include = np.array([3.146231327807963e-05, 7.543988269811632e-05], dtype=float)
         ccp_candidates = np.unique(np.concatenate([ccp_alphas, must_include]))
-        # 상한
-        if SAFE_MODE and len(ccp_candidates) > SAFE_MAX_PRUNED_ALPHAS:
-            idx = np.linspace(0, len(ccp_candidates)-1, SAFE_MAX_PRUNED_ALPHAS).astype(int)
-            ccp_candidates = ccp_candidates[idx]
+    
+        # 🚫 노트북과 동일하게: 서브샘플링(상한) 금지
+        if not STRICT_NOTEBOOK_MATCH:
+            if SAFE_MODE and len(ccp_candidates) > SAFE_MAX_PRUNED_ALPHAS:
+                idx = np.linspace(0, len(ccp_candidates)-1, SAFE_MAX_PRUNED_ALPHAS).astype(int)
+                ccp_candidates = ccp_candidates[idx]
+    
         base_grid["model__ccp_alpha"] = list(ccp_candidates.tolist())
         st.caption(f"ccp_alpha 후보: {len(base_grid['model__ccp_alpha'])}개")
 
@@ -1092,8 +1103,12 @@ def page_tuning():
 
         # --- Pruned: 수동 스윕 ---
         with st.spinner("Cost-Complexity Pruning 실행 중..."):
-            X_train_t = preprocessor.fit_transform(X_train, y_train)
-            X_test_t  = preprocessor.transform(X_test)
+            # ✅ 위에서 fit한 행렬을 그대로 재사용
+            X_train_t = st.session_state.get("_prune_X_train_t")
+            X_test_t  = st.session_state.get("_prune_X_test_t")
+            if X_train_t is None or X_test_t is None:
+                X_train_t = preprocessor.fit_transform(X_train, y_train)
+                X_test_t  = preprocessor.transform(X_test)
 
             cand = user_grid.get("model__ccp_alpha", [])
             # Safe Mode 상한
