@@ -177,10 +177,10 @@ def _inject_sparrow_css():
   align-items:center;
   gap:.35rem;
   padding:4px 8px !important;     /* ← 여백 줄임 */
-  font-size:12px !important;      /* ← 글자 크기 줄임 */
+  font-size:10px !important;      /* ← 글자 크기 줄임 */
   line-height:1.1;                
   border-radius:10px !important;  /* ← 둥근 정도 축소 */
-  background:#0b1220;             /* 배경색 (원래 쓰던 색) */
+  background:#1e293b;             /* 배경색 (원래 쓰던 색) */
   color:#fff;
   box-shadow:0 2px 8px rgba(0,0,0,.12);
   width:auto;                     /* 콘텐츠 만큼만 */
