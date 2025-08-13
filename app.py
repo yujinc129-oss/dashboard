@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from sklearn.metrics import mean_squared_error, r2_score
 import plotly.express as px
+from matplotlib.patches import Patch
 
 from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, PolynomialFeatures, StandardScaler
 from sklearn.compose import ColumnTransformer
