@@ -349,42 +349,42 @@ def page_overview():
     st.plotly_chart(fig, use_container_width=True)
 
     c1, c2 = st.columns([1, 1])
-with c1:
-    st.subheader("최근 연도 상위 작품")
-    _df = raw_df.copy()
-    _df['start airing'] = pd.to_numeric(_df['start airing'], errors='coerce')
-    _df['score'] = pd.to_numeric(_df['score'], errors='coerce')
-    _df = _df.dropna(subset=['start airing', 'score'])
-
-    if not _df.empty:
-        last_year = int(_df['start airing'].max())
-        recent = _df[_df['start airing'].between(last_year-1, last_year)]
-        name_col = '드라마명' if '드라마명' in recent.columns else ('title' if 'title' in recent.columns else recent.columns[0])
-
-        recent_unique = (
-            recent.sort_values('score', ascending=False)
-                  .drop_duplicates(subset=[name_col], keep='first')
-        )
-        top_recent = recent_unique.sort_values('score', ascending=False).head(10)
-
-        ymax = float(top_recent['score'].max())
-
-        fig_recent = px.bar(top_recent, x=name_col, y='score', text='score')
-        fig_recent.update_traces(
-            texttemplate='%{text:.2f}',
-            textposition='outside',
-            cliponaxis=False   # ✅ 축 밖 텍스트 클리핑 방지
-        )
-        fig_recent.update_yaxes(range=[0, ymax * 1.15])  # ✅ 머리 공간
-        fig_recent.update_layout(
-            height=420,
-            margin=dict(l=12, r=12, t=72, b=60),          # ✅ top 여백 확대
-            xaxis=dict(tickangle=-30, automargin=True),
-            uniformtext_minsize=10, uniformtext_mode='hide'
-        )
-        st.plotly_chart(fig_recent, use_container_width=True)
-    else:
-        st.info("최근 연도 데이터가 없습니다.")
+    with c1:
+        st.subheader("최근 연도 상위 작품")
+        _df = raw_df.copy()
+        _df['start airing'] = pd.to_numeric(_df['start airing'], errors='coerce')
+        _df['score'] = pd.to_numeric(_df['score'], errors='coerce')
+        _df = _df.dropna(subset=['start airing', 'score'])
+    
+        if not _df.empty:
+            last_year = int(_df['start airing'].max())
+            recent = _df[_df['start airing'].between(last_year-1, last_year)]
+            name_col = '드라마명' if '드라마명' in recent.columns else ('title' if 'title' in recent.columns else recent.columns[0])
+    
+            recent_unique = (
+                recent.sort_values('score', ascending=False)
+                      .drop_duplicates(subset=[name_col], keep='first')
+            )
+            top_recent = recent_unique.sort_values('score', ascending=False).head(10)
+    
+            ymax = float(top_recent['score'].max())
+    
+            fig_recent = px.bar(top_recent, x=name_col, y='score', text='score')
+            fig_recent.update_traces(
+                texttemplate='%{text:.2f}',
+                textposition='outside',
+                cliponaxis=False   # ✅ 축 밖 텍스트 클리핑 방지
+            )
+            fig_recent.update_yaxes(range=[0, ymax * 1.15])  # ✅ 머리 공간
+            fig_recent.update_layout(
+                height=420,
+                margin=dict(l=12, r=12, t=72, b=60),          # ✅ top 여백 확대
+                xaxis=dict(tickangle=-30, automargin=True),
+                uniformtext_minsize=10, uniformtext_mode='hide'
+            )
+            st.plotly_chart(fig_recent, use_container_width=True)
+        else:
+            st.info("최근 연도 데이터가 없습니다.")
 
     with c2:
         st.subheader("플랫폼별 작품 수 (TOP 10)")
