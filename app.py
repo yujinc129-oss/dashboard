@@ -350,7 +350,7 @@ def page_overview():
 
     c1, c2 = st.columns([1, 1])
     with c1:
-        st.subheader("최근 연도 상위 작품 (중복 제거)")
+        st.subheader("최근 연도 상위 작품")
         _df = raw_df.copy()
         _df['start airing'] = pd.to_numeric(_df['start airing'], errors='coerce')
         _df['score'] = pd.to_numeric(_df['score'], errors='coerce')
@@ -364,7 +364,7 @@ def page_overview():
             top_recent = recent_unique.sort_values('score', ascending=False).head(10)
             fig_recent = px.bar(top_recent, x=name_col, y='score', text='score')
             fig_recent.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-            fig_recent.update_layout(height=320, margin=dict(l=10, r=10, t=20, b=40))
+            fig_recent.update_layout(height=400, margin=dict(l=10, r=10, t=20, b=40))
             st.plotly_chart(fig_recent, use_container_width=True)
         else:
             st.info("최근 연도 데이터가 없습니다.")
