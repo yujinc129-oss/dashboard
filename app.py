@@ -133,7 +133,7 @@ def _inject_sparrow_css():
     st.markdown("""
     <style>
       /* ---------- Layout / Typography ---------- */
-      :root{ --page-top-pad: 6.0rem; }  /* ← 필요하면 5.5~8rem 사이로 조절 */
+      :root{ --page-top-pad: 5.0rem; }  /* ← 필요하면 5.5~8rem 사이로 조절 */
       .block-container{padding-top: var(--page-top-pad) !important;
         padding-bottom: 2.6rem !important;}
       h1,h2,h3{font-weight:800;}
