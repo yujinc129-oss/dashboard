@@ -172,18 +172,35 @@ def _inject_sparrow_css():
       .block-container{padding-top:1.4rem; padding-bottom:2.2rem;}
       .kpi-row{ margin-bottom: 18px; }
       div[data-testid="stPlotlyChart"]{ margin-top:8px; }
-      .safe-chip{
-  display:inline-flex;
-  align-items:center;
-  gap:.35rem;
-  padding:6px 8px 8px !important;     /* ← 여백 줄임 */
-  font-size:10px !important;      /* ← 글자 크기 줄임 */
-  line-height:1.1;                
-  border-radius:10px !important;  /* ← 둥근 정도 축소 */
-  background:#1e293b;             /* 배경색 (원래 쓰던 색) */
-  color:#fff;
-  box-shadow:0 2px 8px rgba(0,0,0,.12);
+      .sb-safe{
+  width:100%;
+  display:flex; align-items:center; justify-content:center;
+  padding:10px 12px;                 /* 버튼과 유사한 패딩 */
+  border:1px solid #e5e7eb;          /* 버튼 테두리 */
+  background:#ffffff;                /* 버튼 배경 */
+  color:#111827;                     /* 글자색 */
+  font-weight:700; font-size:14px;   /* 버튼과 동일 크기 */
+  border-radius:10px;                /* 버튼과 동일 라운드 */
+  box-shadow:0 1px 0 rgba(17,24,39,.02);
+  margin:8px 0 0;                    /* 위 여백만 살짝 */
 }
+     .sb-safe .dot{
+  width:8px; height:8px; border-radius:9999px;
+  background:#10b981;                /* ON 초록 점 */
+  margin-right:8px;
+}
+
+/* ▶ 모델 설정 카드: 메타(작게, 한 줄) */
+    .sb-card.sb-config .sb-card-title{
+      margin:0 0 4px 0; font-size:12px; font-weight:800; color:#334155;
+    }
+    .sb-card.sb-config .meta{
+      font-size:11px; color:#6b7280;
+      white-space:nowrap;                /* 한 줄 고정 */
+      overflow:hidden; text-overflow:ellipsis; /* 너무 길면 … */
+      line-height:1.1;
+    }
+        
     </style>
     """, unsafe_allow_html=True)
 
@@ -1189,10 +1206,16 @@ with st.sidebar:
             _set_nav_query(slug)
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-
+        
     sm_text = "ON" if SAFE_MODE else "OFF"
-    st.markdown(f'<div class="safe-chip"><h4>Safe Mode: {sm_text}</h4>', unsafe_allow_html=True)
-    st.caption("test_size = 0.2, random_state = 42")
+    st.markdown(f'<div class="sb-safe"><h4>Safe Mode: {sm_text}</h4>', unsafe_allow_html=True)
+    st.markdown(
+    '<div class="sb-card sb-config">'
+    '<div class="sb-card-title">모델 설정</div>'
+    '<div class="meta">test_size = 0.2, random_state = 42</div>'
+    '</div>',
+    unsafe_allow_html=True
+)
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="sb-footer">© Chemiscore • <span class="ver">v0.2</span></div>', unsafe_allow_html=True)
